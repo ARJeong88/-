@@ -40,7 +40,6 @@
     #overlay h1 { font-size: 28px; color:#ffd76b; margin-bottom:8px; }
     #overlay p { color:#9a94b8; margin-bottom: 12px; font-size:13px; line-height:1.5; }
     
-    /* 랭킹 오버레이 스타일 추가 */
     .leaderboard {
         background: #161622;
         border: 2px solid #33334d;
@@ -134,7 +133,7 @@
     </div>
     <div id="overlay" class="active">
         <h1 id="overlay-title">🧱 테트리스</h1>
-        <p id="overlay-desc">블록을 쌓고 줄을 채워 없애보세요!<br>◀▶로 이동, ⟳로 회전, ▼소프트드롭, ⤓하드드롭, HOLD로 보관<br><br>🔬 3줄을 지울 때마다 과학 퀴즈 등장! (오답 시 방해 줄 추가)<br>💎 줄 제거 10코인 · 퀴즈 정답 30코인 → 🏪 상점에서 아이템 구매<br>구매한 아이템은 옆 칸에 쌓아뒀다가 원할 때 탭해서 사용하세요!<br>⏱ 40초마다 낙하 속도가 점점 빨라집니다.</p>
+        <p id="overlay-desc">블록을 쌓고 줄을 채워 없애보세요!<br>◀▶로 이동, ⟳로 회전, ▼소프트드롭, ⤓하드드롭, HOLD로 보관<br><br>🔬 3줄을 지우거나 20~40초 경과 시 과학 퀴즈 등장! (오답 시 방해 줄 추가)<br>💎 줄 제거 10코인 · 퀴즈 정답 30코인 → 🏪 상점에서 아이템 구매<br>구매한 아이템은 옆 칸에 쌓아뒀다가 원할 때 탭해서 사용하세요!<br>⏱ 40초마다 낙하 속도가 점점 빨라집니다.</p>
         <button class="big-btn" onclick="startGame()">시작하기</button>
     </div>
     <div id="quiz-overlay">
@@ -219,6 +218,16 @@ let currentQuiz = null;
 let shuffledQuizBank = [];
 let currentQuizIndex = 0;
 
+// 랜덤 시간 퀴즈용 변수
+let quizTimerMs = 0;
+let nextQuizTimeMs = 0;
+
+function resetQuizTimer() {
+    quizTimerMs = 0;
+    // 20초 ~ 40초 (20000ms ~ 40000ms) 사이 랜덤 설정
+    nextQuizTimeMs = Math.floor(Math.random() * 20000) + 20000;
+}
+
 // ---------- 코인 & 상점 ----------
 const COIN_PER_LINE = 5;
 const COIN_PER_QUIZ = 30;
@@ -259,6 +268,9 @@ function resetGame() {
     inventory = { clearLine: 0, summonI: 0, slowDown: 0 };
     dropInterval = 800; dropTimer = 0; lastTime = performance.now();
     
+    // 퀴즈 타이머 초기화
+    resetQuizTimer();
+
     // 게임을 다시 시작할 때마다 퀴즈 배열을 무작위로 섞음
     shuffledQuizBank = [...QUIZ_BANK];
     for (let i = shuffledQuizBank.length - 1; i > 0; i--) {
@@ -445,6 +457,7 @@ function answerQuiz(i) {
 function afterQuiz() {
     document.getElementById('quiz-overlay').classList.remove('active');
     linesSinceQuiz = 0;
+    resetQuizTimer(); // 퀴즈 종료 시 랜덤 시간 타이머 리셋
     updateHud();
     if (!gameOver) {
         running = true;
@@ -645,6 +658,14 @@ function loop(t) {
     lastTime = t;
     dropTimer += dt;
     elapsedPlayMs += dt;
+    
+    // 퀴즈용 시간 누적 및 체크
+    quizTimerMs += dt;
+    if (quizTimerMs >= nextQuizTimeMs) {
+        triggerQuiz();
+        return; // 퀴즈 호출 시 일시 정지되므로 함수 종료
+    }
+
     timeBoostLevel = Math.floor(elapsedPlayMs / TIME_BOOST_INTERVAL);
     let effInterval = dropInterval - timeBoostLevel * 40;
     if (elapsedPlayMs < slowEndMs) effInterval *= 1.6;
